@@ -115,6 +115,14 @@ func DatabaseInit() {
 
 // TODO: Set up table for servers and return them in the help command for servers that are connected
 
+func AddServer(ip string) {
+	log.Printf("Adding Server IP: %s", ip)
+}
+
+func RemoveServer(ip string) {
+	log.Printf("Removing Server IP: %s", ip)
+}
+
 func DatabaseDestroy() {
 	time.Sleep(10 * time.Second)
 

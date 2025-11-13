@@ -51,6 +51,38 @@ var (
 			Description: "scales the minecraft server | default is auto",
 		},
 		{
+			Name:        "databasestart",
+			Description: "starts the database",
+		},
+		{
+			Name:        "databasestop",
+			Description: "stops the database",
+		},
+		{
+			Name:        "addserver",
+			Description: "adds a server to the database",
+			Options: []*discordgo.ApplicationCommandOption{
+				{
+					Type:        discordgo.ApplicationCommandOptionString,
+					Name:        "ip",
+					Description: "server IP to add to the database",
+					Required:    true,
+				},
+			},
+		},
+		{
+			Name:        "removeserver",
+			Description: "removes a server to the database",
+			Options: []*discordgo.ApplicationCommandOption{
+				{
+					Type:        discordgo.ApplicationCommandOptionString,
+					Name:        "ip",
+					Description: "server IP to remove to the database",
+					Required:    true,
+				},
+			},
+		},
+		{
 			Name:        "help",
 			Description: "help",
 		},
@@ -137,7 +169,40 @@ var (
 					Embeds: []*discordgo.MessageEmbed{
 						{
 							Title: "Initializing Database...",
+							// TODO!: Should be auto started by default
 							Color: 0xADD8E6,
+						},
+					},
+				},
+			})
+		},
+		"addserver": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			ip := i.ApplicationCommandData().Options[0].StringValue()
+			h.AddServer(ip)
+			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Embeds: []*discordgo.MessageEmbed{
+						{
+							Title: fmt.Sprintf("Adding %s to the database...", ip),
+							// TODO!: Need to make a function in commands.go to fetch the database results and check that against what was passed in the command to ensure the IP successfully was ADDED to the database
+							Color: 0x39ff02,
+						},
+					},
+				},
+			})
+		},
+		"removeserver": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			ip := i.ApplicationCommandData().Options[0].StringValue()
+			h.RemoveServer(ip)
+			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Embeds: []*discordgo.MessageEmbed{
+						{
+							Title: fmt.Sprintf("Removing %s from the database...", ip),
+							// TODO!: Need to make a function in commands.go to fetch the database results and check that against what was passed in the command to ensure the IP successfully was REMOVED to the database
+							Color: 0xff0206,
 						},
 					},
 				},
@@ -192,6 +257,16 @@ var (
 									Inline: false,
 								},
 								{
+									Name:   "/addserver",
+									Value:  "Adds a server to the database",
+									Inline: false,
+								},
+								{
+									Name:   "/removeserver",
+									Value:  "Removes a server from the database",
+									Inline: false,
+								},
+								{
 									Name:   "/databasestart",
 									Value:  "Starts the database for the bot",
 									Inline: false,
@@ -213,6 +288,10 @@ var (
 								},
 								{
 									Value:  "SERVER 2",
+									Inline: false,
+								},
+								{
+									Value:  "SERVER 3",
 									Inline: false,
 								},
 							},
@@ -264,7 +343,7 @@ func main() {
 		if err != nil {
 			log.Printf("Failed to delete old command '%v': %v", cmd.Name, err)
 		} else {
-			log.Printf("Deleted old command: %v", cmd.Name)
+			//log.Printf("Deleted old command: %v", cmd.Name)
 		}
 	}
 
@@ -278,18 +357,19 @@ func main() {
 		registeredCommands[i] = cmd
 	}
 
-	defer s.Close()
-
-	stop := make(chan os.Signal, 1)
-	signal.Notify(stop, os.Interrupt)
-	log.Println("Press Ctrl+C to exit")
-	<-stop
-
 	log.Println("Refreshing commands...")
 	_, err = s.ApplicationCommandBulkOverwrite(s.State.User.ID, GuildID, commands)
 	if err != nil {
 		log.Fatalf("Cannot refresh commands: %v", err)
 	}
+
+	defer s.Close()
+
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt)
+	log.Println("Ready to take commands!")
+	log.Println("Press Ctrl+C to exit")
+	<-stop
 
 	log.Println("Gracefully shutting down.")
 }
