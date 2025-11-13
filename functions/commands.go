@@ -108,9 +108,18 @@ func DatabaseInit() {
 	if err != nil {
 		panic(err)
 	}
+
 	defer db.Close()
 
 	log.Printf("Conencted to database %s", databaseName)
+}
+
+func CheckDBHealth((h *Handler) error {
+	err := db.Ping()
+	if err != nil {
+		return fmt.Errorf("database connection error: %v", err)
+	}
+	return nil
 }
 
 // TODO: Set up table for servers and return them in the help command for servers that are connected

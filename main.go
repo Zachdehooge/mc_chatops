@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
 	"log"
 	"os"
@@ -10,6 +11,10 @@ import (
 	"github.com/joho/godotenv"
 	h "github.com/zachdehooge/MC-Chatops/functions"
 )
+
+type Handler struct {
+	DB *sql.DB
+}
 
 // Global Variables
 var s *discordgo.Session
@@ -208,6 +213,34 @@ var (
 				},
 			})
 		},
+		"status": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			if err := CheckDBHealth(h); err != nil {
+				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+					Type: discordgo.InteractionResponseChannelMessageWithSource,
+					Data: &discordgo.InteractionResponseData{
+						Embeds: []*discordgo.MessageEmbed{
+							{
+								Title: fmt.Sprintf("Database Issue Detected"),
+								Color: 0x39ff02,
+							},
+						},
+					},
+				})
+				return
+			}
+
+			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Embeds: []*discordgo.MessageEmbed{
+						{
+							Title: fmt.Sprintf("Connected to Database Successfully"),
+							Color: 0x39ff02,
+						},
+					},
+				},
+			})
+		},
 		"databasestop": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			h.DatabaseDestroy()
 			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
@@ -362,6 +395,19 @@ func main() {
 	if err != nil {
 		log.Fatalf("Cannot refresh commands: %v", err)
 	}
+
+	databaseName := "mydata.db"
+
+	// Create/open database
+	db, err := sql.Open("sqlite3", "./"+databaseName)
+	if err != nil {
+		log.Fatalf("failed to open database: %v", err)
+	}
+
+	log.Printf("Connected to database %s", databaseName)
+
+	// Initialize your handler with the DB connection
+	h := &Handler{DB: db}
 
 	defer s.Close()
 
