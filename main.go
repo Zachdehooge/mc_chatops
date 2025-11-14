@@ -6,15 +6,14 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/joho/godotenv"
 	h "github.com/zachdehooge/MC-Chatops/functions"
 )
 
-type Handler struct {
-	DB *sql.DB
-}
+var db *sql.DB
 
 // Global Variables
 var s *discordgo.Session
@@ -62,6 +61,10 @@ var (
 		{
 			Name:        "databasestop",
 			Description: "stops the database",
+		},
+		{
+			Name:        "listservers",
+			Description: "lists the servers in the database",
 		},
 		{
 			Name:        "addserver",
@@ -166,8 +169,9 @@ var (
 				},
 			})
 		},
+		// TODO!: Depracate this?
 		"databasestart": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			h.DatabaseInit()
+			//h.DatabaseInit()
 			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionResponseChannelMessageWithSource,
 				Data: &discordgo.InteractionResponseData{
@@ -183,7 +187,7 @@ var (
 		},
 		"addserver": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			ip := i.ApplicationCommandData().Options[0].StringValue()
-			h.AddServer(ip)
+			h.AddServer(db, ip)
 			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionResponseChannelMessageWithSource,
 				Data: &discordgo.InteractionResponseData{
@@ -196,6 +200,7 @@ var (
 					},
 				},
 			})
+			//commandHandlers["listservers"](s, i)
 		},
 		"removeserver": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			ip := i.ApplicationCommandData().Options[0].StringValue()
@@ -212,30 +217,23 @@ var (
 					},
 				},
 			})
+			//commandHandlers["listservers"](s, i)
 		},
-		"status": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			if err := CheckDBHealth(h); err != nil {
-				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-					Type: discordgo.InteractionResponseChannelMessageWithSource,
-					Data: &discordgo.InteractionResponseData{
-						Embeds: []*discordgo.MessageEmbed{
-							{
-								Title: fmt.Sprintf("Database Issue Detected"),
-								Color: 0x39ff02,
-							},
-						},
-					},
-				})
-				return
-			}
-
+		"listservers": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionResponseChannelMessageWithSource,
 				Data: &discordgo.InteractionResponseData{
 					Embeds: []*discordgo.MessageEmbed{
 						{
-							Title: fmt.Sprintf("Connected to Database Successfully"),
-							Color: 0x39ff02,
+							Title: "Listing Servers Database...",
+							Fields: []*discordgo.MessageEmbedField{
+								{
+									Name:   "Servers",
+									Value:  strings.Join(h.GetServers(), "\n"),
+									Inline: false,
+								},
+							},
+							Color: 0xADD8E6,
 						},
 					},
 				},
@@ -297,6 +295,11 @@ var (
 								{
 									Name:   "/removeserver",
 									Value:  "Removes a server from the database",
+									Inline: false,
+								},
+								{
+									Name:   "/listservers",
+									Value:  "Lists all servers in the database",
 									Inline: false,
 								},
 								{
@@ -396,18 +399,24 @@ func main() {
 		log.Fatalf("Cannot refresh commands: %v", err)
 	}
 
-	databaseName := "mydata.db"
+	h.SetDB(db)
 
-	// Create/open database
-	db, err := sql.Open("sqlite3", "./"+databaseName)
+	db, err := sql.Open("sqlite3", "./servers.db")
 	if err != nil {
-		log.Fatalf("failed to open database: %v", err)
+		panic(err)
+	}
+	defer db.Close()
+
+	createTable := `
+	CREATE TABLE IF NOT EXISTS servers (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		ip TEXT NOT NULL UNIQUE
+	);`
+	if _, err := db.Exec(createTable); err != nil {
+		log.Fatalf("Failed to create table: %v", err)
 	}
 
-	log.Printf("Connected to database %s", databaseName)
-
-	// Initialize your handler with the DB connection
-	h := &Handler{DB: db}
+	log.Print("Database initialized successfully!")
 
 	defer s.Close()
 
@@ -416,6 +425,5 @@ func main() {
 	log.Println("Ready to take commands!")
 	log.Println("Press Ctrl+C to exit")
 	<-stop
-
 	log.Println("Gracefully shutting down.")
 }

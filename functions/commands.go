@@ -19,7 +19,12 @@ import (
 var startTime = time.Now()
 var serverStartTime time.Time
 var serverRunning bool
-var databaseName = "servers.sqlite3"
+var databaseName = "servers.db"
+var db *sql.DB
+
+func SetDB(database *sql.DB) {
+	db = database
+}
 
 func checkFileExists(filePath string) bool {
 	_, error := os.Stat(filePath)
@@ -93,43 +98,61 @@ func ColorStatus() int {
 	}
 }
 
-func DatabaseInit() {
-	os.Create(databaseName)
+// TODO!: Set up table for servers and return them in the help command for servers that are connected
 
-	var present = checkFileExists(databaseName)
-
-	if present {
-		log.Print("Database Found!")
-	} else {
-		log.Print("Database Not Found")
+func AddServer(db *sql.DB, ip string) {
+	if db == nil {
+		log.Println("Database not initialized. Call SetDB() first.")
+		return
 	}
 
-	db, err := sql.Open("sqlite3", "./"+databaseName)
+	log.Printf("Adding server IP: %s", ip)
+
+	stmt, err := db.Prepare("INSERT OR IGNORE INTO servers (ip) VALUES (?)")
 	if err != nil {
-		panic(err)
+		log.Printf("Failed to prepare statement: %v", err)
+		return
 	}
+	defer stmt.Close()
 
-	defer db.Close()
-
-	log.Printf("Conencted to database %s", databaseName)
-}
-
-func CheckDBHealth((h *Handler) error {
-	err := db.Ping()
+	_, err = stmt.Exec(ip)
 	if err != nil {
-		return fmt.Errorf("database connection error: %v", err)
+		log.Printf("Failed to insert server IP: %v", err)
+		return
 	}
-	return nil
-}
 
-// TODO: Set up table for servers and return them in the help command for servers that are connected
-
-func AddServer(ip string) {
-	log.Printf("Adding Server IP: %s", ip)
+	log.Printf("Server %s added successfully!", ip)
 }
 
 func RemoveServer(ip string) {
 	log.Printf("Removing Server IP: %s", ip)
+}
+
+func GetServers() []string {
+	if db == nil {
+		return []string{}
+	}
+
+	rows, err := db.Query("SELECT ip FROM servers")
+	if err != nil {
+		return []string{}
+	}
+	defer rows.Close()
+
+	var servers []string
+	for rows.Next() {
+		var ip string
+		if err := rows.Scan(&ip); err != nil {
+			return []string{}
+		}
+		servers = append(servers, ip)
+	}
+
+	if err := rows.Err(); err != nil {
+		return []string{}
+	}
+
+	return servers
 }
 
 func DatabaseDestroy() {
