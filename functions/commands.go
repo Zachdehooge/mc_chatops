@@ -100,25 +100,50 @@ func ColorStatus() int {
 
 // TODO!: Set up table for servers and return them in the help command for servers that are connected
 
-func AddServer(db *sql.DB, ip string) {
+func initDatabase() {
+	SetDB(db)
+
+	db, err := sql.Open("sqlite3", "./servers.db")
+	if err != nil {
+		panic(err)
+	}
+
+	createTable := `
+	CREATE TABLE IF NOT EXISTS servers (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		ip TEXT NOT NULL UNIQUE
+	);`
+	if _, err := db.Exec(createTable); err != nil {
+		log.Fatalf("Failed to create table: %v", err)
+	}
+
+	testServer := `
+	INSERT INTO servers (ip)
+	VALUES('10.0.0.1'
+	);`
+
+	if _, err := db.Exec(testServer); err != nil {
+		log.Fatalf("Failed to create test server: %v", err)
+	}
+
+	log.Print("Database initialized successfully!")
+
+	defer db.Close()
+}
+
+func AddServer(SetDB, ip string) {
 	if db == nil {
 		log.Println("Database not initialized. Call SetDB() first.")
 		return
 	}
 
-	log.Printf("Adding server IP: %s", ip)
+	testServer := `
+	INSERT INTO servers (ip)
+	VALUES("10.0.0.2"
+	);`
 
-	stmt, err := db.Prepare("INSERT OR IGNORE INTO servers (ip) VALUES (?)")
-	if err != nil {
-		log.Printf("Failed to prepare statement: %v", err)
-		return
-	}
-	defer stmt.Close()
-
-	_, err = stmt.Exec(ip)
-	if err != nil {
-		log.Printf("Failed to insert server IP: %v", err)
-		return
+	if _, err := db.Exec(testServer); err != nil {
+		log.Fatalf("Failed to create test server: %v", err)
 	}
 
 	log.Printf("Server %s added successfully!", ip)

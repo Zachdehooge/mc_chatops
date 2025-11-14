@@ -399,25 +399,7 @@ func main() {
 		log.Fatalf("Cannot refresh commands: %v", err)
 	}
 
-	h.SetDB(db)
-
-	db, err := sql.Open("sqlite3", "./servers.db")
-	if err != nil {
-		panic(err)
-	}
-	defer db.Close()
-
-	createTable := `
-	CREATE TABLE IF NOT EXISTS servers (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		ip TEXT NOT NULL UNIQUE
-	);`
-	if _, err := db.Exec(createTable); err != nil {
-		log.Fatalf("Failed to create table: %v", err)
-	}
-
-	log.Print("Database initialized successfully!")
-
+	
 	defer s.Close()
 
 	stop := make(chan os.Signal, 1)
