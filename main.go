@@ -192,7 +192,7 @@ var (
 					},
 				},
 			})
-			//commandHandlers["listservers"](s, i)
+			Store.Save()
 		},
 		"removeserver": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			ip := i.ApplicationCommandData().Options[0].StringValue()
@@ -208,7 +208,7 @@ var (
 					},
 				},
 			})
-			//commandHandlers["listservers"](s, i)
+			Store.Save()
 		},
 		"listservers": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
@@ -362,8 +362,6 @@ func main() {
 		cmd, err := s.ApplicationCommandCreate(s.State.User.ID, GuildID, v)
 		if err != nil {
 			log.Panicf("Cannot create '%v' command: %v", v.Name, err)
-		} else {
-			log.Printf("Added command: %v", cmd.Name)
 		}
 		registeredCommands[i] = cmd
 	}

@@ -41,12 +41,12 @@ func Ping(ip string) bool {
 }
 
 func ServerStatus() string {
+
 	store, err := Load()
 	if err != nil {
 		return "Error loading IPs..."
 	}
 	ips := store.GetIPs()
-
 	if len(ips) == 0 {
 		return "No IPs Stored..."
 	}
@@ -59,7 +59,6 @@ func ServerStatus() string {
 			result += fmt.Sprintf("🔴 %s\n", ip)
 		}
 	}
-
 	return result
 }
 
