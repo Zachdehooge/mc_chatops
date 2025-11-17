@@ -4,10 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net"
 	"os"
-	"os/exec"
-	"runtime"
-	"strings"
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -33,47 +31,36 @@ func BotUptime() string {
 }
 
 func Ping(ip string) bool {
-	var cmd *exec.Cmd
-	if runtime.GOOS == "windows" {
-		cmd = exec.Command("ping", "-n", "1", "-w", "1000", ip)
-	} else {
-		cmd = exec.Command("ping", "-c", "1", "-W", "1", ip)
-	}
-	out, err := cmd.Output()
+	timeout := 1 * time.Second
+	conn, err := net.DialTimeout("tcp", net.JoinHostPort(ip, "80"), timeout)
 	if err != nil {
 		return false
 	}
-	return strings.Contains(string(out), "TTL=") || strings.Contains(string(out), "ttl=")
+	conn.Close()
+	return true
 }
 
-func ServerStatus(s *IPStore) string {
-	ips := s.IPs
+func ServerStatus() string {
+	store, err := Load()
+	if err != nil {
+		return "Error loading IPs..."
+	}
+	ips := store.GetIPs()
+
 	if len(ips) == 0 {
 		return "No IPs Stored..."
 	}
 
-	type result struct {
-		ip string
-		up bool
-	}
-	results := make(chan result, len(ips))
-
+	result := ""
 	for _, ip := range ips {
-		go func(ip string) {
-			results <- result{ip, Ping(ip)}
-		}(ip)
-	}
-
-	var output string
-	for range ips {
-		r := <-results
-		if r.up {
-			output += fmt.Sprintf("🟢 %s\n", r.ip)
+		if Ping(ip) {
+			result += fmt.Sprintf("🟢 %s\n", ip)
 		} else {
-			output += fmt.Sprintf("🔴 %s\n", r.ip)
+			result += fmt.Sprintf("🔴 %s\n", ip)
 		}
 	}
-	return output
+
+	return result
 }
 
 func StartServer() string {
@@ -108,11 +95,7 @@ func ServerUptime() string {
 }
 
 func ColorStatus() int {
-	store, err := Load()
-	if err != nil {
-		return 0xFF0000
-	}
-	if ServerStatus(store) == "200" {
+	if ServerStatus() == "200" {
 		return 0x57F287
 	} else {
 		return 0xFF0000

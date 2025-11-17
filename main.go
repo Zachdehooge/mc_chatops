@@ -33,8 +33,7 @@ func init() {
 var (
 	commands = []*discordgo.ApplicationCommand{
 		{
-			Name: "botstatus",
-			// All commands and options must have a description
+			Name:        "botstatus",
 			Description: "bot uptime",
 		},
 		{
@@ -113,7 +112,7 @@ var (
 					Embeds: []*discordgo.MessageEmbed{
 						{
 							Title:       "Server Uptime",
-							Description: fmt.Sprintf("Server Status: \n%s", h.ServerStatus(Store)),
+							Description: fmt.Sprintf("Server Status: \n%s", h.ServerStatus()),
 							Color:       h.ColorStatus(),
 						},
 					},
@@ -363,6 +362,8 @@ func main() {
 		cmd, err := s.ApplicationCommandCreate(s.State.User.ID, GuildID, v)
 		if err != nil {
 			log.Panicf("Cannot create '%v' command: %v", v.Name, err)
+		} else {
+			log.Printf("Added command: %v", cmd.Name)
 		}
 		registeredCommands[i] = cmd
 	}
