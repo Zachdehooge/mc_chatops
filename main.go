@@ -1,7 +1,6 @@
 package main
 
 import (
-	"database/sql"
 	"fmt"
 	"log"
 	"os"
@@ -13,7 +12,7 @@ import (
 	h "github.com/zachdehooge/MC-Chatops/functions"
 )
 
-var db *sql.DB
+var Store *h.IPStore
 
 // Global Variables
 var s *discordgo.Session
@@ -40,11 +39,15 @@ var (
 		},
 		{
 			Name:        "serverstatus",
-			Description: "server uptime",
+			Description: "server status",
 		},
 		{
 			Name:        "serverstart",
 			Description: "starts the minecraft server",
+		},
+		{
+			Name:        "restartserver",
+			Description: "restarts the minecraft server",
 		},
 		{
 			Name:        "serverstop",
@@ -53,14 +56,6 @@ var (
 		{
 			Name:        "serverscale",
 			Description: "scales the minecraft server | default is auto",
-		},
-		{
-			Name:        "databasestart",
-			Description: "starts the database",
-		},
-		{
-			Name:        "databasestop",
-			Description: "stops the database",
 		},
 		{
 			Name:        "listservers",
@@ -118,7 +113,7 @@ var (
 					Embeds: []*discordgo.MessageEmbed{
 						{
 							Title:       "Server Uptime",
-							Description: fmt.Sprintf("Server Uptime: %s\nServer Status Code: %s", h.ServerUptime(), h.ServerStatus()),
+							Description: fmt.Sprintf("Server Status: \n%s", h.ServerStatus(Store)),
 							Color:       h.ColorStatus(),
 						},
 					},
@@ -134,6 +129,21 @@ var (
 						{
 							Title:       "Server Start",
 							Description: "Starting Server...",
+							Color:       0x57F287,
+						},
+					},
+				},
+			})
+		},
+		"restartserver": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			h.RestartServer()
+			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Embeds: []*discordgo.MessageEmbed{
+						{
+							Title:       "Server Restart",
+							Description: "Restarting Server...",
 							Color:       0x57F287,
 						},
 					},
@@ -169,32 +179,15 @@ var (
 				},
 			})
 		},
-		// TODO!: Depracate this?
-		"databasestart": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			//h.DatabaseInit()
-			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.InteractionResponseChannelMessageWithSource,
-				Data: &discordgo.InteractionResponseData{
-					Embeds: []*discordgo.MessageEmbed{
-						{
-							Title: "Initializing Database...",
-							// TODO!: Should be auto started by default
-							Color: 0xADD8E6,
-						},
-					},
-				},
-			})
-		},
 		"addserver": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			ip := i.ApplicationCommandData().Options[0].StringValue()
-			h.AddServer(db, ip)
+			Store.AddIP(ip)
 			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionResponseChannelMessageWithSource,
 				Data: &discordgo.InteractionResponseData{
 					Embeds: []*discordgo.MessageEmbed{
 						{
 							Title: fmt.Sprintf("Adding %s to the database...", ip),
-							// TODO!: Need to make a function in commands.go to fetch the database results and check that against what was passed in the command to ensure the IP successfully was ADDED to the database
 							Color: 0x39ff02,
 						},
 					},
@@ -204,14 +197,13 @@ var (
 		},
 		"removeserver": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			ip := i.ApplicationCommandData().Options[0].StringValue()
-			h.RemoveServer(ip)
+			Store.RemoveIP(ip)
 			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionResponseChannelMessageWithSource,
 				Data: &discordgo.InteractionResponseData{
 					Embeds: []*discordgo.MessageEmbed{
 						{
 							Title: fmt.Sprintf("Removing %s from the database...", ip),
-							// TODO!: Need to make a function in commands.go to fetch the database results and check that against what was passed in the command to ensure the IP successfully was REMOVED to the database
 							Color: 0xff0206,
 						},
 					},
@@ -229,24 +221,10 @@ var (
 							Fields: []*discordgo.MessageEmbedField{
 								{
 									Name:   "Servers",
-									Value:  strings.Join(h.GetServers(), "\n"),
+									Value:  strings.Join(Store.GetIPs(), "\n"),
 									Inline: false,
 								},
 							},
-							Color: 0xADD8E6,
-						},
-					},
-				},
-			})
-		},
-		"databasestop": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			h.DatabaseDestroy()
-			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.InteractionResponseChannelMessageWithSource,
-				Data: &discordgo.InteractionResponseData{
-					Embeds: []*discordgo.MessageEmbed{
-						{
-							Title: "Destroying Database...",
 							Color: 0xADD8E6,
 						},
 					},
@@ -269,12 +247,17 @@ var (
 								},
 								{
 									Name:   "/serverstatus",
-									Value:  "Shows server uptime and status",
+									Value:  "Shows server status",
 									Inline: false,
 								},
 								{
 									Name:   "/serverstart",
 									Value:  "Starts the Minecraft server",
+									Inline: false,
+								},
+								{
+									Name:   "/restartserver",
+									Value:  "Restarts the Minecraft server",
 									Inline: false,
 								},
 								{
@@ -300,16 +283,6 @@ var (
 								{
 									Name:   "/listservers",
 									Value:  "Lists all servers in the database",
-									Inline: false,
-								},
-								{
-									Name:   "/databasestart",
-									Value:  "Starts the database for the bot",
-									Inline: false,
-								},
-								{
-									Name:   "/databasedestroy",
-									Value:  "Destroys the database for the bot",
 									Inline: false,
 								},
 							},
@@ -350,6 +323,7 @@ func init() {
 func main() {
 
 	var GuildID = os.Getenv("GuildID")
+	Store, _ = h.Load()
 
 	s.AddHandler(func(s *discordgo.Session, r *discordgo.Ready) {
 		log.Printf("Logged in as: %v#%v", s.State.User.Username, s.State.User.Discriminator)
@@ -399,13 +373,17 @@ func main() {
 		log.Fatalf("Cannot refresh commands: %v", err)
 	}
 
-	
 	defer s.Close()
+
+	log.Println("Starting Servers...")
+	h.StartServer()
 
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt)
 	log.Println("Ready to take commands!")
 	log.Println("Press Ctrl+C to exit")
 	<-stop
-	log.Println("Gracefully shutting down.")
+	log.Println("Storing IP's...")
+	Store.Save()
+	log.Println("Shutting down...")
 }
