@@ -4,8 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"net"
 	"os"
+	"os/exec"
+	"runtime"
+	"strings"
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -31,13 +33,20 @@ func BotUptime() string {
 }
 
 func Ping(ip string) bool {
-	timeout := 1 * time.Second
-	conn, err := net.DialTimeout("tcp", net.JoinHostPort(ip, "80"), timeout)
+	var cmd *exec.Cmd
+	if runtime.GOOS == "windows" {
+		cmd = exec.Command("ping", "-n", "1", "-w", "1000", ip)
+	} else {
+		cmd = exec.Command("ping", "-c", "1", "-W", "1", ip)
+	}
+	out, err := cmd.Output()
 	if err != nil {
 		return false
 	}
-	conn.Close()
-	return true
+	if runtime.GOOS == "windows" {
+		return strings.Contains(string(out), "TTL=")
+	}
+	return strings.Contains(string(out), "ttl=")
 }
 
 func ServerStatus() string {

@@ -111,8 +111,8 @@ var (
 				Data: &discordgo.InteractionResponseData{
 					Embeds: []*discordgo.MessageEmbed{
 						{
-							Title:       "Server Uptime",
-							Description: fmt.Sprintf("Server Status: \n%s", h.ServerStatus()),
+							Title:       "Server Status",
+							Description: h.ServerStatus(),
 							Color:       h.ColorStatus(),
 						},
 					},
@@ -326,7 +326,7 @@ func main() {
 
 	s.AddHandler(func(s *discordgo.Session, r *discordgo.Ready) {
 		log.Printf("Logged in as: %v#%v", s.State.User.Username, s.State.User.Discriminator)
-		s.UpdateStatusComplex(discordgo.UpdateStatusData{
+		_ = s.UpdateStatusComplex(discordgo.UpdateStatusData{
 			Activities: []*discordgo.Activity{
 				{
 					Name: "Your Minecraft Server",
