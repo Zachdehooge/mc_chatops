@@ -98,7 +98,7 @@ var (
 					Embeds: []*discordgo.MessageEmbed{
 						{
 							Title:       "Bot Uptime",
-							Description: fmt.Sprintf("Bot Uptime: %s", h.BotUptime()),
+							Description: fmt.Sprintf("Last Start: %s\nUptime: %s", h.BotStart(), h.BotUptime()),
 							Color:       0x57F287,
 						},
 					},

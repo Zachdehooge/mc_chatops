@@ -24,6 +24,10 @@ type IPStore struct {
 	IPs []string `json:"ips"`
 }
 
+func BotStart() string {
+	return startTime.Format(time.DateTime)
+}
+
 func BotUptime() string {
 	uptime := time.Since(startTime)
 	hours := int(uptime.Hours())
